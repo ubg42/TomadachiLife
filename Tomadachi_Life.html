@@ -1,0 +1,79 @@
+<html>
+<head>
+    <title>Tomadachi Life</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #game {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<div id="game"></div>
+
+<script>
+    EJS_player = "#game";
+    EJS_core = "3ds";
+    EJS_pathtodata = "data/";
+
+    async function load3DS() {
+        const parts = [
+            "Tomodachi_Life.3ds.part01",
+            "Tomodachi_Life.3ds.part02",
+            "Tomodachi_Life.3ds.part03",
+            "Tomodachi_Life.3ds.part04",
+            "Tomodachi_Life.3ds.part05,
+            "Tomodachi_Life.3ds.part06",
+            "Tomodachi_Life.3ds.part07",
+            "Tomodachi_Life.3ds.part08",
+            "Tomodachi_Life.3ds.part09",
+            "Tomodachi_Life.3ds.part10",
+            "Tomodachi_Life.3ds.part11",
+            "Tomodachi_Life.3ds.part12", 
+            "Tomodachi_Life.3ds.part13",
+            "Tomodachi_Life.3ds.part14",
+            "Tomodachi_Life.3ds.part15",
+            "Tomodachi_Life.3ds.part16",
+            "Tomodachi_Life.3ds.part17,
+            "Tomodachi_Life.3ds.part18",
+            "Tomodachi_Life.3ds.part19",
+            "Tomodachi_Life.3ds.part20",
+            "Tomodachi_Life.3ds.part21",            
+        ];
+
+        const buffers = [];
+
+        for (const part of parts) {
+            console.log("Loading:", part);
+
+            const response = await fetch(part);
+
+            if (!response.ok) {
+                throw new Error(`Failed to load ${part}: ${response.status}`);
+            }
+
+            buffers.push(await response.arrayBuffer());
+        }
+
+        const rom = new Blob(buffers, {
+            type: "application/octet-stream"
+        });
+
+        EJS_gameUrl = URL.createObjectURL(rom);
+
+        const script = document.createElement("script");
+        script.src = EJS_pathtodata + "loader.js";
+        document.body.appendChild(script);
+    }
+
+    load3DS().catch(console.error);
+</script>
+</body>
+</html>
