@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
     <title>Tomodachi Life</title>
@@ -9,11 +10,67 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            background: #000;
         }
 
         #game {
             width: 100vw;
             height: 100vh;
+        }
+
+        #loading {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            background: #111;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        #loading h2 {
+            margin-bottom: 10px;
+        }
+
+        #status {
+            margin: 5px;
+            font-size: 16px;
+        }
+
+        #progressText {
+            margin: 5px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        #progressContainer {
+            width: min(600px, 80vw);
+            height: 20px;
+            margin-top: 15px;
+
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #progressBar {
+            width: 0%;
+            height: 100%;
+
+            background: #4caf50;
+            transition: width 0.15s ease;
+        }
+
+        #error {
+            display: none;
+            color: #ff5555;
+            max-width: 80%;
+            text-align: center;
         }
     </style>
 </head>
@@ -22,143 +79,310 @@
 
 <div id="game"></div>
 
+<div id="loading">
+    <h2>Tomodachi Life</h2>
+
+    <div id="status">
+        Preparing...
+    </div>
+
+    <div id="progressText">
+        0 / 21 parts
+    </div>
+
+    <div id="progressContainer">
+        <div id="progressBar"></div>
+    </div>
+
+    <div id="error"></div>
+</div>
+
 <script>
-    // EmulatorJS configuration
     EJS_player = "#game";
     EJS_core = "azahar";
 
-    // EmulatorJS data directory
-    EJS_pathtodata = "https://cdn.emulatorjs.org/nightly/data/";
+    EJS_pathtodata =
+        "https://cdn.emulatorjs.org/nightly/data/";
 
-    // Use the normal Azahar core
     EJS_forceLegacyCores = false;
+
+
+    const loading = document.getElementById("loading");
+    const status = document.getElementById("status");
+    const progressText = document.getElementById("progressText");
+    const progressBar = document.getElementById("progressBar");
+    const errorBox = document.getElementById("error");
+
+
+    function setProgress(percent) {
+        progressBar.style.width = percent + "%";
+    }
+
+
+    function showError(message) {
+        status.style.display = "none";
+        progressText.style.display = "none";
+        document.getElementById("progressContainer").style.display = "none";
+
+        errorBox.style.display = "block";
+        errorBox.textContent = message;
+    }
+
 
     async function load3DS() {
 
-        const parts = [
-            "./roms/Tomodachi_Life.3ds.part01",
-            "./roms/Tomodachi_Life.3ds.part02",
-            "./roms/Tomodachi_Life.3ds.part03",
-            "./roms/Tomodachi_Life.3ds.part04",
-            "./roms/Tomodachi_Life.3ds.part05",
-            "./roms/Tomodachi_Life.3ds.part06",
-            "./roms/Tomodachi_Life.3ds.part07",
-            "./roms/Tomodachi_Life.3ds.part08",
-            "./roms/Tomodachi_Life.3ds.part09",
-            "./roms/Tomodachi_Life.3ds.part10",
-            "./roms/Tomodachi_Life.3ds.part11",
-            "./roms/Tomodachi_Life.3ds.part12",
-            "./roms/Tomodachi_Life.3ds.part13",
-            "./roms/Tomodachi_Life.3ds.part14",
-            "./roms/Tomodachi_Life.3ds.part15",
-            "./roms/Tomodachi_Life.3ds.part16",
-            "./roms/Tomodachi_Life.3ds.part17",
-            "./roms/Tomodachi_Life.3ds.part18",
-            "./roms/Tomodachi_Life.3ds.part19",
-            "./roms/Tomodachi_Life.3ds.part20",
-            "./roms/Tomodachi_Life.3ds.part21"
-        ];
+        const parts = [];
+
+        // Create .part01 through .part21
+        for (let i = 1; i <= 21; i++) {
+
+            parts.push(
+                "./roms/Tomodachi_Life.3ds.part" +
+                String(i).padStart(2, "0")
+            );
+        }
+
 
         const buffers = [];
 
-        console.log("Loading Tomodachi Life...");
+        let totalBytes = 0;
+
+
+        // =====================================
+        // Download parts
+        // =====================================
 
         for (let i = 0; i < parts.length; i++) {
 
-            const part = parts[i];
+            const url = parts[i];
 
-            console.log(
-                `Loading part ${i + 1}/${parts.length}:`,
-                part
-            );
+            const partNumber = i + 1;
 
-            const response = await fetch(part);
+            status.textContent =
+                "Downloading part " +
+                partNumber +
+                " of " +
+                parts.length +
+                "...";
+
+            progressText.textContent =
+                partNumber +
+                " / " +
+                parts.length +
+                " parts";
+
+
+            const response = await fetch(url);
 
             if (!response.ok) {
                 throw new Error(
-                    `Failed to load ${part}: HTTP ${response.status}`
+                    "Failed to load part " +
+                    partNumber +
+                    " (HTTP " +
+                    response.status +
+                    ")"
                 );
             }
 
-            const buffer = await response.arrayBuffer();
 
-            console.log(
-                `Loaded part ${i + 1}: ${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB`
+            // Get the expected size if available
+            const contentLength =
+                response.headers.get("Content-Length");
+
+            const expectedSize =
+                contentLength
+                    ? Number(contentLength)
+                    : 0;
+
+
+            // Read the file while displaying progress
+            if (response.body) {
+
+                const reader =
+                    response.body.getReader();
+
+                const chunks = [];
+
+                let received = 0;
+
+                while (true) {
+
+                    const { done, value } =
+                        await reader.read();
+
+                    if (done)
+                        break;
+
+                    chunks.push(value);
+
+                    received += value.length;
+
+
+                    if (expectedSize > 0) {
+
+                        const partPercent =
+                            received / expectedSize;
+
+                        const overallPercent =
+                            (
+                                (i + partPercent) /
+                                parts.length
+                            ) * 100;
+
+                        setProgress(
+                            Math.min(
+                                100,
+                                overallPercent
+                            )
+                        );
+
+                        progressText.textContent =
+                            "Part " +
+                            partNumber +
+                            "/" +
+                            parts.length +
+                            " — " +
+                            Math.round(
+                                partPercent * 100
+                            ) +
+                            "%";
+                    }
+                }
+
+
+                // Combine chunks
+                const partBlob =
+                    new Blob(chunks);
+
+                const buffer =
+                    await partBlob.arrayBuffer();
+
+                buffers.push(buffer);
+
+                totalBytes += buffer.byteLength;
+
+            } else {
+
+                // Fallback if streaming isn't available
+                const buffer =
+                    await response.arrayBuffer();
+
+                buffers.push(buffer);
+
+                totalBytes += buffer.byteLength;
+
+                setProgress(
+                    (partNumber /
+                        parts.length) * 100
+                );
+            }
+
+
+            // Make sure completed parts reach their percentage
+            setProgress(
+                (partNumber /
+                    parts.length) * 100
             );
-
-            buffers.push(buffer);
         }
 
-        console.log("Joining parts...");
 
-        // Combine all parts into one Blob
-        const romBlob = new Blob(buffers, {
-            type: "application/octet-stream"
-        });
+        // =====================================
+        // Join ROM
+        // =====================================
 
-        console.log(
-            "ROM size:",
-            (romBlob.size / 1024 / 1024).toFixed(2),
-            "MB"
-        );
+        status.textContent =
+            "Combining ROM parts...";
 
-        // Give the ROM a real filename
-        const romFile = new File(
-            [romBlob],
-            "Tomodachi_Life.3ds",
-            {
+        progressText.textContent =
+            "Preparing Tomodachi Life...";
+
+        setProgress(100);
+
+
+        const romBlob =
+            new Blob(buffers, {
                 type: "application/octet-stream"
-            }
-        );
+            });
 
-        // Create a temporary URL
-        EJS_gameUrl = URL.createObjectURL(romFile);
 
-        console.log("ROM ready:");
-        console.log(EJS_gameUrl);
+        const romFile =
+            new File(
+                [romBlob],
+                "Tomodachi_Life.3ds",
+                {
+                    type:
+                        "application/octet-stream"
+                }
+            );
 
+
+        // =====================================
+        // Create ROM URL
+        // =====================================
+
+        EJS_gameUrl =
+            URL.createObjectURL(romFile);
+
+
+        // =====================================
         // Start EmulatorJS
-        const script = document.createElement("script");
+        // =====================================
 
-        script.src = EJS_pathtodata + "loader.js";
+        status.textContent =
+            "Starting Azahar...";
 
-        script.onload = () => {
-            console.log("EmulatorJS loader loaded.");
+        progressText.textContent =
+            "Loading emulator...";
+
+
+        const script =
+            document.createElement("script");
+
+        script.src =
+            EJS_pathtodata +
+            "loader.js";
+
+
+        script.onload = function () {
+
+            console.log(
+                "EmulatorJS loader loaded."
+            );
+
+            // Give EmulatorJS a moment to initialize
+            setTimeout(() => {
+
+                loading.style.display =
+                    "none";
+
+            }, 1000);
         };
 
-        script.onerror = () => {
-            console.error(
-                "Failed to load EmulatorJS loader:",
+
+        script.onerror = function () {
+
+            showError(
+                "Failed to load EmulatorJS:\n" +
                 script.src
             );
         };
 
+
         document.body.appendChild(script);
     }
 
-    load3DS().catch(error => {
-        console.error("3DS loading failed:", error);
 
-        document.getElementById("game").innerHTML = `
-            <div style="
-                color:white;
-                background:#111;
-                width:100%;
-                height:100%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-family:Arial;
-                text-align:center;
-            ">
-                <div>
-                    <h2>Failed to load Tomodachi Life</h2>
-                    <p>${error.message}</p>
-                    <p>Open the browser console for more information.</p>
-                </div>
-            </div>
-        `;
+    // Start
+    load3DS().catch(error => {
+
+        console.error(error);
+
+        showError(
+            "Failed to load Tomodachi Life:\n\n" +
+            error.message
+        );
     });
+
 </script>
 
 </body>
