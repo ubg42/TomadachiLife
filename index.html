@@ -1,12 +1,14 @@
 <html>
 <head>
-    <title>Tomadachi Life</title>
+    <title>Tomodachi Life</title>
+
     <style>
-        body, html {
+        html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
+            overflow: hidden;
         }
 
         #game {
@@ -15,17 +17,24 @@
         }
     </style>
 </head>
+
 <body>
+
 <div id="game"></div>
 
 <script>
+    // EmulatorJS configuration
     EJS_player = "#game";
     EJS_core = "azahar";
+
+    // EmulatorJS data directory
     EJS_pathtodata = "data/";
-    
+
+    // Use the normal Azahar core
     EJS_forceLegacyCores = false;
 
     async function load3DS() {
+
         const parts = [
             "./roms/Tomodachi_Life.3ds.part01",
             "./roms/Tomodachi_Life.3ds.part02",
@@ -38,7 +47,7 @@
             "./roms/Tomodachi_Life.3ds.part09",
             "./roms/Tomodachi_Life.3ds.part10",
             "./roms/Tomodachi_Life.3ds.part11",
-            "./roms/Tomodachi_Life.3ds.part12", 
+            "./roms/Tomodachi_Life.3ds.part12",
             "./roms/Tomodachi_Life.3ds.part13",
             "./roms/Tomodachi_Life.3ds.part14",
             "./roms/Tomodachi_Life.3ds.part15",
@@ -47,35 +56,110 @@
             "./roms/Tomodachi_Life.3ds.part18",
             "./roms/Tomodachi_Life.3ds.part19",
             "./roms/Tomodachi_Life.3ds.part20",
-            "./roms/Tomodachi_Life.3ds.part21"            
+            "./roms/Tomodachi_Life.3ds.part21"
         ];
 
         const buffers = [];
 
-        for (const part of parts) {
-            console.log("Loading:", part);
+        console.log("Loading Tomodachi Life...");
+
+        for (let i = 0; i < parts.length; i++) {
+
+            const part = parts[i];
+
+            console.log(
+                `Loading part ${i + 1}/${parts.length}:`,
+                part
+            );
 
             const response = await fetch(part);
 
             if (!response.ok) {
-                throw new Error(`Failed to load ${part}: ${response.status}`);
+                throw new Error(
+                    `Failed to load ${part}: HTTP ${response.status}`
+                );
             }
 
-            buffers.push(await response.arrayBuffer());
+            const buffer = await response.arrayBuffer();
+
+            console.log(
+                `Loaded part ${i + 1}: ${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB`
+            );
+
+            buffers.push(buffer);
         }
 
-        const rom = new Blob(buffers, {
+        console.log("Joining parts...");
+
+        // Combine all parts into one Blob
+        const romBlob = new Blob(buffers, {
             type: "application/octet-stream"
         });
 
-        EJS_gameUrl = URL.createObjectURL(rom);
+        console.log(
+            "ROM size:",
+            (romBlob.size / 1024 / 1024).toFixed(2),
+            "MB"
+        );
 
+        // Give the ROM a real filename
+        const romFile = new File(
+            [romBlob],
+            "Tomodachi_Life.3ds",
+            {
+                type: "application/octet-stream"
+            }
+        );
+
+        // Create a temporary URL
+        EJS_gameUrl = URL.createObjectURL(romFile);
+
+        console.log("ROM ready:");
+        console.log(EJS_gameUrl);
+
+        // Start EmulatorJS
         const script = document.createElement("script");
+
         script.src = EJS_pathtodata + "loader.js";
+
+        script.onload = () => {
+            console.log("EmulatorJS loader loaded.");
+        };
+
+        script.onerror = () => {
+            console.error(
+                "Failed to load EmulatorJS loader:",
+                script.src
+            );
+        };
+
         document.body.appendChild(script);
     }
 
-    load3DS().catch(console.error);
+    load3DS().catch(error => {
+        console.error("3DS loading failed:", error);
+
+        document.getElementById("game").innerHTML = `
+            <div style="
+                color:white;
+                background:#111;
+                width:100%;
+                height:100%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-family:Arial;
+                text-align:center;
+            ">
+                <div>
+                    <h2>Failed to load Tomodachi Life</h2>
+                    <p>${error.message}</p>
+                    <p>Open the browser console for more information.</p>
+                </div>
+            </div>
+        `;
+    });
 </script>
+
 </body>
 </html>
